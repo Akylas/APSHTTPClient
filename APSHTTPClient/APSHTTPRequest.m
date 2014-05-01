@@ -6,14 +6,51 @@
  */
 
 #import "APSHTTPClient.h"
+#import <libkern/OSAtomic.h>
+#import <UIKit/UIKit.h>
 
 @implementation APSHTTPRequest
+static int32_t networkActivityCount;
+static BOOL _disableNetworkActivityIndicator;
 @synthesize url = _url;
 @synthesize method = _method;
 @synthesize response = _response;
 @synthesize filePath = _filePath;
 @synthesize requestPassword = _requestPassword;
 @synthesize requestUsername = _requestUsername;
+@synthesize challengedCredential = _challengedCredential;
+@synthesize authenticationChallenge = _authenticationChallenge;
+@synthesize persistence = _persistence;
+@synthesize authRetryCount = _authRetryCount;
+@synthesize showActivity;
+
+
+
++(void)startNetwork
+{
+	if (OSAtomicIncrement32(&networkActivityCount) == 1)
+	{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:!_disableNetworkActivityIndicator];
+        });
+	}
+}
+
++(void)stopNetwork
+{
+	if (OSAtomicDecrement32(&networkActivityCount) == 0)
+	{
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:NO];
+        });
+	}
+}
+
++ (void)setDisableNetworkActivityIndicator:(BOOL)value
+{
+	_disableNetworkActivityIndicator = value;
+	[[UIApplication sharedApplication] setNetworkActivityIndicatorVisible:(!_disableNetworkActivityIndicator && (networkActivityCount > 0))];
+}
 
 - (void)dealloc
 {
@@ -29,6 +66,8 @@
     RELEASE_TO_NIL(_operation);
     RELEASE_TO_NIL(_userInfo);
     RELEASE_TO_NIL(_headers);
+    RELEASE_TO_NIL(_challengedCredential);
+    RELEASE_TO_NIL(_authenticationChallenge);
     [super dealloc];
 }
 - (id)init
@@ -45,6 +84,10 @@
     [self setSendDefaultCookies:YES];
     [self setRedirects:YES];
     [self setValidatesSecureCertificate: YES];
+    
+    showActivity = NO;
+    _authRetryCount = 1;
+    _persistence = NSURLCredentialPersistenceForSession;
     
     _request = [[NSMutableURLRequest alloc] init];
     [_request setCachePolicy:NSURLRequestReloadIgnoringLocalAndRemoteCacheData];
@@ -72,8 +115,36 @@
     return _connection;
 }
 
+-(void)updateChallengeCredential
+{
+    if ([_requestUsername length] > 0 && [_requestPassword length] >0) {
+        self.challengedCredential = [NSURLCredential credentialWithUser:_requestUsername password:_requestPassword persistence:_persistence];
+    }
+    else {
+        self.challengedCredential = nil;
+    }
+}
+
+-(void)setRequestUsername:(NSString *)requestUsername
+{
+    RELEASE_TO_NIL(_requestUsername)
+    _requestUsername = [requestUsername retain];
+    [self updateChallengeCredential];
+}
+
+-(void)setRequestPassword:(NSString *)requestPassword
+{
+    RELEASE_TO_NIL(_requestPassword)
+    _requestPassword = [requestPassword retain];
+    [self updateChallengeCredential];
+}
+
+
 -(void)send
 {
+    if (showActivity) {
+        [APSHTTPRequest startNetwork];
+    }
     if([self filePath]) {
         [_response setFilePath:[self filePath]];
     }
@@ -120,7 +191,7 @@
     [_request setHTTPShouldHandleCookies:[self sendDefaultCookies]];
     
     if([self synchronous]) {
-        if([self requestUsername] != nil && [self requestPassword] != nil && [_request valueForHTTPHeaderField:@"Authorization"] == nil) {
+        if(!_challengedCredential && [self requestUsername] != nil && [self requestPassword] != nil && [_request valueForHTTPHeaderField:@"Authorization"] == nil) {
             NSString *authString = [APSHTTPHelper base64encode:[[NSString stringWithFormat:@"%@:%@",[self requestUsername], [self requestPassword]] dataUsingEncoding:NSUTF8StringEncoding]];
             [_request setValue:[NSString stringWithFormat:@"Basic %@", authString] forHTTPHeaderField:@"Authorization"];
         }
@@ -171,57 +242,94 @@
     [_headers setValue:value forKey:key];
 }
 
--(BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)connection
+- (void)removeCredentialsWithURLURLProtectionSpace:(NSURLProtectionSpace *)space
 {
-	if([self connectionDelegate] != nil && [[self connectionDelegate] respondsToSelector:@selector(connectionShouldUseCredentialStorage:)]) {
-		return [[self connectionDelegate] connectionShouldUseCredentialStorage:connection];
+    NSURLCredentialStorage* credentialStorage = [NSURLCredentialStorage sharedCredentialStorage];
+    NSDictionary* credentials = [credentialStorage credentialsForProtectionSpace:space];
+    for (NSString* key in [credentials allKeys]) {
+        NSURLCredential* cred = [credentials objectForKey:key];
+        [credentialStorage removeCredential:cred forProtectionSpace:space];
+    }
+}
+
+
+- (BOOL)connection:(NSURLConnection *)connection canAuthenticateAgainstProtectionSpace:(NSURLProtectionSpace *)protectionSpace{
+    if([[self delegate] respondsToSelector:@selector(request:canAuthenticateAgainstProtectionSpace:)])
+    {
+        return [[self delegate] request:self canAuthenticateAgainstProtectionSpace:protectionSpace];
+    }
+	if (([protectionSpace authenticationMethod] == NSURLAuthenticationMethodClientCertificate)
+        ||  ([protectionSpace authenticationMethod] == NSURLAuthenticationMethodServerTrust))
+	{
+		return NO;
 	}
+	else
+	{
+		return YES;
+	}
+}
+
+- (BOOL)connectionShouldUseCredentialStorage:(NSURLConnection *)connection{
+	if([[self delegate] respondsToSelector:@selector(request:connectionShouldUseCredentialStorage:)])
+    {
+        return [[self delegate] request:self connectionShouldUseCredentialStorage:connection];
+    }
 	return YES;
 }
 
 -(void)connection:(NSURLConnection *)connection willSendRequestForAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge
 {
-#ifdef DEBUG
-    NSLog(@"%s", __PRETTY_FUNCTION__);
-#endif
-    BOOL useSubDelegate = ([self connectionDelegate] != nil && [[self connectionDelegate] respondsToSelector:@selector(connection:willSendRequestForAuthenticationChallenge:)]);
-    
-    if(useSubDelegate && [[self connectionDelegate] respondsToSelector:@selector(willHandleChallenge:forConnection:)]) {
-        useSubDelegate = [[self connectionDelegate] willHandleChallenge:challenge forConnection:connection];
-    }
-    
-    if(useSubDelegate) {
-        [[self connectionDelegate] connection:connection willSendRequestForAuthenticationChallenge:challenge];
-        return;
-    }
-
+    NSString* authMethod = [[challenge protectionSpace] authenticationMethod];
     if ([challenge previousFailureCount]) {
-        [[challenge sender] cancelAuthenticationChallenge:challenge];
+        NSURLCredential* credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:challenge.protectionSpace];
+        if(credential && [challenge previousFailureCount]  == 1) {
+            [challenge.sender useCredential:credential forAuthenticationChallenge:challenge];
+            return;
+        }
+        else if ([challenge previousFailureCount] > _authRetryCount) {
+            [[challenge sender] cancelAuthenticationChallenge:challenge];
+        }
     }
-    
-    NSString* authMethod = [[[[challenge protectionSpace] authenticationMethod] retain] autorelease];
-    BOOL handled = NO;
-    if ([authMethod isEqualToString:NSURLAuthenticationMethodServerTrust]) {
-        if ( ([challenge.protectionSpace.host isEqualToString:[[self url] host]]) && (![self validatesSecureCertificate]) ){
-            handled = YES;
+    if(![self validatesSecureCertificate]) {
+        if (
+            [authMethod isEqualToString:NSURLAuthenticationMethodServerTrust] &&
+            [challenge.protectionSpace.host isEqualToString:[[self url] host]]
+            ) {
             [[challenge sender] useCredential:
              [NSURLCredential credentialForTrust: [[challenge protectionSpace] serverTrust]]
                    forAuthenticationChallenge: challenge];
         }
-    } else if ( [authMethod isEqualToString:NSURLAuthenticationMethodDefault] || [authMethod isEqualToString:NSURLAuthenticationMethodHTTPBasic]
-               || [authMethod isEqualToString:NSURLAuthenticationMethodNTLM] || [authMethod isEqualToString:NSURLAuthenticationMethodHTTPDigest]) {
-        if([self requestPassword] != nil && [self requestUsername] != nil) {
-            handled = YES;
-            [[challenge sender] useCredential:
-             [NSURLCredential credentialWithUser:[self requestUsername]
-                                        password:[self requestPassword]
-                                     persistence:NSURLCredentialPersistenceForSession]
-                   forAuthenticationChallenge:challenge];
-        }
     }
     
-    if (!handled) {
-        [[challenge sender] performDefaultHandlingForAuthenticationChallenge:challenge];
+    if ([authMethod isEqualToString:NSURLAuthenticationMethodDefault]) {
+        self.authenticationChallenge = challenge;
+        
+        if(_challengedCredential) { //if password and username
+            [challenge.sender useCredential:_challengedCredential forAuthenticationChallenge:challenge];
+            //        [[challenge sender] useCredential:
+            //         [NSURLCredential credentialWithUser:_requestUsername
+            //                                    password:_requestPassword
+            //                                 persistence:_persistence]
+            //               forAuthenticationChallenge:challenge];
+            if([[self delegate] respondsToSelector:@selector(request:onUseAuthenticationChallenge:)])
+            {
+                [[self delegate] request:self onUseAuthenticationChallenge:challenge];
+            }
+            //        [[challenge sender] continueWithoutCredentialForAuthenticationChallenge:challenge];
+        }
+        else {
+            [self removeCredentialsWithURLURLProtectionSpace:challenge.protectionSpace];
+            if([[self delegate] respondsToSelector:@selector(request:onRequestForAuthenticationChallenge:)])
+            {
+                [[self delegate] request:self onRequestForAuthenticationChallenge:challenge];
+            }
+            else {
+                [[challenge sender] continueWithoutCredentialForAuthenticationChallenge:challenge];
+            }
+        }
+    }
+    else {
+        [[challenge sender] continueWithoutCredentialForAuthenticationChallenge:challenge];
     }
 }
 
@@ -276,7 +384,15 @@
     if([_delegate respondsToSelector:@selector(request:onReadyStateChage:)]) {
         [_delegate request:self onReadyStateChage:_response];
     }
-
+    if(_authenticationChallenge && [_authenticationChallenge.protectionSpace.protocol isEqualToString:response.URL.scheme] &&
+       [_authenticationChallenge.protectionSpace.host isEqualToString:response.URL.host]){
+        
+        if([self requestPassword] != nil && [self requestUsername] != nil) {
+            if(_challengedCredential && _authenticationChallenge && [(NSHTTPURLResponse *)response statusCode] == 200){
+                [[NSURLCredentialStorage sharedCredentialStorage] setCredential:_challengedCredential forProtectionSpace:_authenticationChallenge.protectionSpace];
+            }
+        }
+    }
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
@@ -314,6 +430,9 @@
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
+    if (showActivity) {
+        [APSHTTPRequest stopNetwork];
+    }
     if(_operation != nil) {
         [_operation setFinished:YES];
     }
@@ -341,9 +460,9 @@
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-	if([self connectionDelegate] != nil && [[self connectionDelegate] respondsToSelector:@selector(connection:didFailWithError:)]) {
-		[[self connectionDelegate] connection:connection didFailWithError:error];
-	}
+	if (showActivity) {
+        [APSHTTPRequest stopNetwork];
+    }
     if(_operation != nil) {
         [_operation setFinished:YES];
     }
