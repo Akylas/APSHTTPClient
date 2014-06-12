@@ -141,12 +141,14 @@ static BOOL _disableNetworkActivityIndicator;
         if([data length] > 0) {
             [self.request setHTTPBody:data];
         }
+#ifdef APSHTTP_DEBUG
         DebugLog(@"Data: %@", [NSString stringWithUTF8String: [data bytes]]);
+#endif
         NSDictionary *headers = [[self postForm] requestHeaders];
         for (NSString* key in headers)
         {
             [self.request setValue:[headers valueForKey:key] forHTTPHeaderField:key];
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
             NSLog(@"Header: '%@': %@", key, [headers valueForKey:key]);
 #endif
         }
@@ -155,12 +157,12 @@ static BOOL _disableNetworkActivityIndicator;
         for (NSString* key in _headers)
         {
             [self.request setValue:[_headers valueForKey:key] forHTTPHeaderField:key];
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
             NSLog(@"Header: %@: %@", key, [_headers valueForKey:key]);
 #endif
         }
     }
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
     NSLog(@"URL: %@", [self url]);
 #endif
     [self.request setURL: [self url]];
@@ -170,7 +172,7 @@ static BOOL _disableNetworkActivityIndicator;
     }
     if([self method] != nil) {
         [self.request setHTTPMethod: [self method]];
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
         NSLog(@"Method: %@", [self method]);
 #endif
     }
@@ -214,10 +216,14 @@ static BOOL _disableNetworkActivityIndicator;
                         [runLoopModes addObject:[runLoop currentMode]];
                     }
                 } else {
+#ifdef APSHTTP_DEBUG
                     DebugLog(@"%s [Line %@] [WARN] [[NSRunLoop currentRunLoop] currentMode] is nil", __PRETTY_FUNCTION__, @(__LINE__));
+#endif
                 }
                 for (NSString *runLoopMode in runLoopModes) {
+#ifdef APSHTTP_DEBUG
                     NSLog(@"MDL: runLoopMode = %@", runLoopMode);
+#endif
                     [_connection scheduleInRunLoop:runLoop forMode:runLoopMode];
                 }
             }
@@ -350,7 +356,7 @@ static BOOL _disableNetworkActivityIndicator;
 
 -(NSURLRequest*)connection:(NSURLConnection *)connection willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)response
 {
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
     NSLog(@"Code %li Redirecting from: %@ to: %@",(long)[(NSHTTPURLResponse*)response statusCode], [self.request URL] ,[request URL]);
 #endif
     [self.response setConnected:YES];
@@ -377,7 +383,7 @@ static BOOL _disableNetworkActivityIndicator;
 
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
 {
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
     NSLog(@"%s", __PRETTY_FUNCTION__);
 #endif
     [self.response setReadyState:APSHTTPResponseStateHeaders];
@@ -409,7 +415,7 @@ static BOOL _disableNetworkActivityIndicator;
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
 {
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
     NSLog(@"%s", __PRETTY_FUNCTION__);
 #endif
     if([self.response readyState] != APSHTTPResponseStateLoading) {
@@ -442,7 +448,7 @@ static BOOL _disableNetworkActivityIndicator;
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
     NSLog(@"%s", __PRETTY_FUNCTION__);
 #endif
 	if (_showActivity) {
@@ -475,7 +481,7 @@ static BOOL _disableNetworkActivityIndicator;
 	if([self connectionDelegate] != nil && [[self connectionDelegate] respondsToSelector:@selector(connection:didFailWithError:)]) {
 		[[self connectionDelegate] connection:connection didFailWithError:error];
 	}
-#ifdef DEBUG
+#ifdef APSHTTP_DEBUG
     NSLog(@"%s", __PRETTY_FUNCTION__);
 #endif
     [self.response setReadyState:APSHTTPResponseStateDone];

@@ -6,7 +6,7 @@
  */
 
 #ifndef DebugLog
-#if defined(DEBUG) || defined(DEVELOPER)
+#if defined(APSHTTP_DEBUG) || defined(DEVELOPER)
 #define DebugLog(...) { NSLog(__VA_ARGS__); }
 #else
 #define DebugLog(...) {}
