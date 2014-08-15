@@ -196,8 +196,8 @@ static BOOL _disableNetworkActivityIndicator;
     } else {
         [self.response updateRequestParamaters:self.request];
         [self.response setReadyState:APSHTTPResponseStateOpened];
-        if([_delegate respondsToSelector:@selector(request:onReadyStateChage:)]) {
-            [_delegate request:self onReadyStateChage:self.response];
+        if([_delegate respondsToSelector:@selector(request:onReadyStateChange:)]) {
+            [_delegate request:self onReadyStateChange:self.response];
         }
         
         _connection = [[NSURLConnection alloc] initWithRequest: self.request
@@ -399,8 +399,8 @@ static BOOL _disableNetworkActivityIndicator;
     }
     _expectedDownloadResponseLength = [response expectedContentLength];
     
-    if([_delegate respondsToSelector:@selector(request:onReadyStateChage:)]) {
-        [_delegate request:self onReadyStateChage:self.response];
+    if([_delegate respondsToSelector:@selector(request:onReadyStateChange:)]) {
+        [_delegate request:self onReadyStateChange:self.response];
     }
     if(_authenticationChallenge && [_authenticationChallenge.protectionSpace.protocol isEqualToString:response.URL.scheme] &&
        [_authenticationChallenge.protectionSpace.host isEqualToString:response.URL.host]){
@@ -420,8 +420,8 @@ static BOOL _disableNetworkActivityIndicator;
 #endif
     if([self.response readyState] != APSHTTPResponseStateLoading) {
         [self.response setReadyState:APSHTTPResponseStateLoading];
-        if([_delegate respondsToSelector:@selector(request:onReadyStateChage:)]) {
-            [_delegate request:self onReadyStateChage:self.response];
+        if([_delegate respondsToSelector:@selector(request:onReadyStateChange:)]) {
+            [_delegate request:self onReadyStateChange:self.response];
         }
     }
     [self.response appendData:data];
@@ -436,8 +436,8 @@ static BOOL _disableNetworkActivityIndicator;
 {
     if([self.response readyState] != APSHTTPResponseStateLoading) {
         [self.response setReadyState:APSHTTPResponseStateLoading];
-        if([_delegate respondsToSelector:@selector(request:onReadyStateChage:)]) {
-            [_delegate request:self onReadyStateChage:self.response];
+        if([_delegate respondsToSelector:@selector(request:onReadyStateChange:)]) {
+            [_delegate request:self onReadyStateChange:self.response];
         }
     }
     [self.response setUploadProgress: (float)totalBytesWritten / (float)totalBytesExpectedToWrite];
@@ -459,8 +459,8 @@ static BOOL _disableNetworkActivityIndicator;
     [self.response setReadyState:APSHTTPResponseStateDone];
     [self.response setConnected:NO];
      
-    if([_delegate respondsToSelector:@selector(request:onReadyStateChage:)]) {
-        [_delegate request:self onReadyStateChage:self.response];
+    if([_delegate respondsToSelector:@selector(request:onReadyStateChange:)]) {
+        [_delegate request:self onReadyStateChange:self.response];
     }
     if([_delegate respondsToSelector:@selector(request:onSendStream:)]) {
         [_delegate request:self onSendStream:self.response];
@@ -485,8 +485,8 @@ static BOOL _disableNetworkActivityIndicator;
     NSLog(@"%s", __PRETTY_FUNCTION__);
 #endif
     [self.response setReadyState:APSHTTPResponseStateDone];
-    if([_delegate respondsToSelector:@selector(request:onReadyStateChage:)]) {
-        [_delegate request:self onReadyStateChage:self.response];
+    if([_delegate respondsToSelector:@selector(request:onReadyStateChange:)]) {
+        [_delegate request:self onReadyStateChange:self.response];
     }
     [self.response setConnected:NO];
     [self.response setError:error];
