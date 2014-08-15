@@ -68,4 +68,5 @@ typedef NS_ENUM(NSInteger, APSRequestError) {
 -(void)send;
 -(void)abort;
 -(void)addRequestHeader:(NSString*)key value:(NSString*)value;
+-(void)prepareAndSendFromDictionary:(NSDictionary*)dict;
 @end

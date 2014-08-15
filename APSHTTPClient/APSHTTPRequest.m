@@ -233,6 +233,103 @@ static BOOL _disableNetworkActivityIndicator;
     
 }
 
+-(void)prepareAndSendFromDictionary:(NSDictionary*)dict
+{
+    [self setUrl:[dict objectForKey:@"url"]];
+	[self setUserInfo:[dict objectForKey:@"userInfo"]];
+    
+	[self setMethod:[dict objectForKey:@"method"]];
+    
+    if ([self response] != nil) {
+        APSHTTPResponseState curState = [[self response] readyState];
+        if (curState != APSHTTPResponseStateUnsent) {
+            NSLog(@"[ERROR] send can only be called if client is disconnected(0). Current state is %d ",curState);
+            return;
+        }
+    }
+    
+    [self setShowActivity: [[dict objectForKey:@"showActivity"] boolValue]];
+     
+    if([dict objectForKey:@"timeout"]) {
+        [self setTimeout: [[dict objectForKey:@"timeout"] floatValue] / 1000 ];
+    }
+    else {
+        [self setTimeout:20];
+    }
+    if([dict objectForKey:@"autoRedirect"]) {
+        [self setRedirects:[[dict objectForKey:@"autoRedirect"] boolValue] ];
+    }
+    if([dict objectForKey:@"cache"]) {
+        [self setCachePolicy:
+        [[dict objectForKey:@"cache"] boolValue] ?
+    NSURLRequestUseProtocolCachePolicy : NSURLRequestReloadIgnoringLocalAndRemoteCacheData
+        ];
+    }
+    if([dict objectForKey:@"validatesSecureCertificate"]) {
+        [self setValidatesSecureCertificate:
+        [[dict objectForKey:@"validatesSecureCertificate"] boolValue] ];
+    }
+    if([dict objectForKey:@"username"]) {
+        [self setRequestUsername:[dict objectForKey:@"username"]];
+    }
+    if([dict objectForKey:@"password"]) {
+        [self setRequestPassword:[dict objectForKey:@"password"]];
+    }
+    if([dict objectForKey:@"domain"]) {
+        // TODO: NTLM
+    }
+    // twitter specifically disallows X-Requested-With so we only add this normal
+    // XHR header if not going to twitter. however, other services generally expect
+    // this header to indicate an XHR request (such as RoR)
+    if ([[[self url] absoluteString] rangeOfString:@"twitter.com"].location==NSNotFound)
+    {
+        [self addRequestHeader:@"X-Requested-With" value:@"XMLHttpRequest"];
+    }
+    if([dict objectForKey:@"file"]) {
+        NSString *filePath = [dict objectForKey:@"file"];
+        if([filePath isKindOfClass:[NSString class]]) {
+            [self setFilePath:filePath];
+        }
+    }
+    
+    APSHTTPPostForm *form = nil;
+    if([dict objectForKey:@"data"]) {
+        NSString *data = [dict objectForKey:@"data"];
+        APSHTTPPostForm *form = [[APSHTTPPostForm alloc] init];
+        if([data isKindOfClass:[NSString class]]) {
+            [form setStringData:data];
+            [self setPostForm:form];
+        }
+        else if([data isKindOfClass:[NSDictionary class]]) {
+            [form setJSONData:data];
+            [self setPostForm:form];
+        }
+    }
+    
+    if([dict objectForKey:@"headers"]) {
+        NSDictionary *headers = [dict objectForKey:@"headers"];
+        if([headers isKindOfClass:[NSDictionary class]]) {
+            [headers enumerateKeysAndObjectsUsingBlock:^(id key, id obj, BOOL *stop) {
+                if ([obj isKindOfClass:[NSString class]]) {
+                    [self addRequestHeader:key value:obj];
+                }
+            }];
+        }
+    }
+    
+    BOOL async = YES;
+    NSOperationQueue *operationQueue = [dict objectForKey:@"queue"];
+    if([dict objectForKey:@"async"]) {
+        async = [[dict objectForKey:@"async"] boolValue];
+    }
+     if(async && operationQueue) {
+         [self setTheQueue:operationQueue];
+     } else {
+         [self setSynchronous:YES];
+     }
+    [self send];
+}
+
 -(void)addRequestHeader:(NSString *)key value:(NSString *)value
 {
     if(_headers == nil) {
