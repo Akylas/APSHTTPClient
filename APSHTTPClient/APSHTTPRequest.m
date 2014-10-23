@@ -464,6 +464,16 @@ static BOOL _disableNetworkActivityIndicator;
                                      persistence:NSURLCredentialPersistenceForSession]
                    forAuthenticationChallenge:challenge];
         }
+        else {
+            [self removeCredentialsWithURLURLProtectionSpace:challenge.protectionSpace];
+            if([[self delegate] respondsToSelector:@selector(request:onRequestForAuthenticationChallenge:)])
+            {
+                [[self delegate] request:self onRequestForAuthenticationChallenge:challenge];
+            }
+            else {
+                [[challenge sender] continueWithoutCredentialForAuthenticationChallenge:challenge];
+            }
+        }
     }
     
     if (!handled) {
