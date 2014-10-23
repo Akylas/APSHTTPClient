@@ -80,7 +80,8 @@ static BOOL _disableNetworkActivityIndicator;
         _request = [[NSMutableURLRequest alloc] init];
         [_request setCachePolicy:NSURLRequestReloadIgnoringLocalAndRemoteCacheData];
         _response = [[APSHTTPResponse alloc] init];
-        [_response setReadyState: APSHTTPResponseStateUnsent];
+        _persistence = NSURLCredentialPersistenceForSession;
+       [_response setReadyState: APSHTTPResponseStateUnsent];
     }
     return self;
 }
