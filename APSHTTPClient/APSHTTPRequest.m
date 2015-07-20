@@ -352,6 +352,20 @@ static BOOL _disableNetworkActivityIndicator;
         DebugLog(@"Remove header for key %@.", key);
         [self.headers removeObjectForKey:key];
     } else {
+        NSString *oldValue = [self.headers objectForKey:key];
+        //check if key already contain a value
+        if (oldValue != nil) {
+            //only for cookie we use ';', otherwise ','
+            if ([[key lowercaseString] isEqualToString:@"cookie"]) {
+                self.headers[key] = [NSString stringWithFormat:@"%@; %@",oldValue,value];
+            }
+            else {
+                self.headers[key] = [NSString stringWithFormat:@"%@, %@",oldValue,value];
+            }
+            DebugLog(@"Multiple headers set. header values %@.", self.headers[key]);
+            return;
+
+        }
         self.headers[key] = value;
     }
 }
