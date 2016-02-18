@@ -355,8 +355,11 @@ static BOOL _disableNetworkActivityIndicator;
         NSString *oldValue = [self.headers objectForKey:key];
         //check if key already contain a value
         if (oldValue != nil) {
+            if ([key  isEqualToString:@"User-Agent"]) {
+                self.headers[key] = value;
+            }
             //only for cookie we use ';', otherwise ','
-            if ([[key lowercaseString] isEqualToString:@"cookie"]) {
+            else if ([[key lowercaseString] isEqualToString:@"cookie"]) {
                 self.headers[key] = [NSString stringWithFormat:@"%@; %@",oldValue,value];
             }
             else {
@@ -364,7 +367,7 @@ static BOOL _disableNetworkActivityIndicator;
             }
             DebugLog(@"Multiple headers set. header values %@.", self.headers[key]);
             return;
-
+            
         }
         self.headers[key] = value;
     }
