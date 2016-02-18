@@ -29,3 +29,19 @@
 ### Version 1.6 ###
 
 * [TIMOB-18902] - Support JSON in multipart post
+
+### Version 1.7 ###
+
+* [TIMOB-19154] - Deprecate NSURLConnection and use NSURLSession instead
+
+### Version 1.8 ###
+
+* [TIMOB-19390] - Rebuild SDK Dependent libs to support bitcode
+
+### Version 1.9 ###
+
+* [TIMOB-19609] - Remove "pcm missing" warnings
+
+### Version 1.10 ###
+
+* [TIMOB-20048] - Revert to nsurlconnection
