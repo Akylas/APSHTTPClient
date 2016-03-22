@@ -15,11 +15,11 @@ static char *alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012
 +(NSString *)base64encode:(NSData *)plainText
 {
     NSString* result = nil;
-    if ([plainText respondsToSelector:@selector(base64EncodedStringWithOptions:)]) {
+//    if ([plainText respondsToSelector:@selector(base64EncodedStringWithOptions:)]) {
         return [plainText base64EncodedStringWithOptions:0];
-    } else {
-        return [plainText base64Encoding];
-    }
+//    } else {
+//        return [plainText base64Encoding];
+//    }
 }
 
 

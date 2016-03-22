@@ -93,4 +93,7 @@ typedef NS_ENUM(NSInteger, APSRequestError) {
 -(void)abort;
 -(void)addRequestHeader:(NSString*)key value:(NSString*)value;
 -(void)prepareAndSendFromDictionary:(NSDictionary*)dict;
+
++ (void)setDisableNetworkActivityIndicator:(BOOL)value;
++ (BOOL)disableNetworkActivityIndicator;
 @end
