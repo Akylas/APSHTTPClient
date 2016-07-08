@@ -823,6 +823,9 @@ static BOOL _disableNetworkActivityIndicator;
 
 -(void)URLSession:(nonnull NSURLSession *)session task:(nonnull NSURLSessionTask *)task didCompleteWithError:(nullable NSError *)error
 {
+    if (_showActivity) {
+        [APSHTTPRequest stopNetwork];
+    }
     if (error != NULL) {
         DebugLog(@"%s", __PRETTY_FUNCTION__);
         self.response.readyState = APSHTTPResponseStateDone;
