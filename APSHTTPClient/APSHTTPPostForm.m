@@ -185,10 +185,14 @@
 
 -(void)setJSONData:(id)json
 {
-    NSError *error = nil;
-    _jsonData = [NSJSONSerialization dataWithJSONObject:json options:kNilOptions error:&error];
-    if(error != nil) {
-        NSLog(@"Error reading JSON: %@", [error localizedDescription]);
+    if ([json isKindOfClass:[NSString class]]) {
+        _jsonData = [json dataUsingEncoding:NSUTF8StringEncoding];
+    } else {
+        NSError *error = nil;
+        _jsonData = [NSJSONSerialization dataWithJSONObject:json options:kNilOptions error:&error];
+        if(error != nil) {
+            NSLog(@"Error reading JSON: %@", [error localizedDescription]);
+        }
     }
 }
 
