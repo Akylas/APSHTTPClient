@@ -122,7 +122,7 @@
     if([self responseData] == nil || [self responseLength] == 0) return nil;
     NSData *data =  [self responseData];
     NSString * result = [[NSString alloc] initWithBytes:[data bytes] length:[data length] encoding:[self encoding]];
-    if (result==nil) {
+    if (result==nil && data != nil) {
         // encoding failed, probably a bad webserver or content we have to deal
         // with in a _special_ way
         NSStringEncoding encoding = NSUTF8StringEncoding;
