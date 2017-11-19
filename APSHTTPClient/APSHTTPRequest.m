@@ -84,7 +84,7 @@ static BOOL _disableNetworkActivityIndicator;
         [_request setCachePolicy:NSURLRequestReloadIgnoringLocalAndRemoteCacheData];
         _response = [[APSHTTPResponse alloc] init];
         _persistence = NSURLCredentialPersistenceForSession;
-       [_response setReadyState: APSHTTPResponseStateUnsent];
+        [_response setReadyState: APSHTTPResponseStateUnsent];
     }
     return self;
 }
@@ -154,16 +154,18 @@ static BOOL _disableNetworkActivityIndicator;
 
 -(void)send
 {
-//    assert(self.url != nil);
-//    assert(self.method != nil);
-//    assert(self.response != nil);
-//    assert(self.response.readyState == APSHTTPResponseStateUnsent);
+#if TARGET_OS_SIMULATOR
+    assert(self.url != nil);
+    assert(self.method != nil);
+    assert(self.response != nil);
+    assert(self.response.readyState == APSHTTPResponseStateUnsent);
+#endif
 
     if (!(self.url != nil)) {
         DebugLog(@"[ERROR] Missing required parameter URL. Ignoring call");
         return;
     }
-
+    
     if (!(self.method != nil)) {
         DebugLog(@"[ERROR] Missing required parameter method. Ignoring call");
         return;
@@ -173,7 +175,7 @@ static BOOL _disableNetworkActivityIndicator;
         DebugLog(@"[ERROR] APSHTTPRequest does not support reuse of connection. Ignoring call.");
         return;
     }
-    
+
     if (_showActivity) {
         [APSHTTPRequest startNetwork];
     }
@@ -231,6 +233,8 @@ static BOOL _disableNetworkActivityIndicator;
                 [self.response updateRequestParamaters:self.request];
                 [self.response setReadyState:APSHTTPResponseStateDone];
                 [self.response setConnected:NO];
+                
+                [self responseFinished];
                 dispatch_semaphore_signal(semaphore);
             }];
             [task resume];
@@ -244,6 +248,8 @@ static BOOL _disableNetworkActivityIndicator;
             [self.response updateRequestParamaters:self.request];
             [self.response setReadyState:APSHTTPResponseStateDone];
             [self.response setConnected:NO];
+
+            [self responseFinished];
         }
     } else {
         [self.response updateRequestParamaters:self.request];
@@ -405,7 +411,7 @@ static BOOL _disableNetworkActivityIndicator;
             }
             DebugLog(@"Multiple headers set. header values %@.", self.headers[key]);
             return;
-            
+
         }
         self.headers[key] = value;
     }
@@ -437,8 +443,8 @@ static BOOL _disableNetworkActivityIndicator;
 	}
 	else
 	{
-		return YES;
-	}
+	return YES;
+}
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveAuthenticationChallenge:(NSURLAuthenticationChallenge *)challenge {
@@ -499,14 +505,14 @@ static BOOL _disableNetworkActivityIndicator;
         }
         return;
     }
-    
+
     NSString* authMethod = [[challenge protectionSpace] authenticationMethod];
     if (challenge.previousFailureCount) {
         NSURLCredential* credential = [[NSURLCredentialStorage sharedCredentialStorage] defaultCredentialForProtectionSpace:challenge.protectionSpace];
         if(credential && [challenge previousFailureCount]  == 1) {
             [challenge.sender useCredential:credential forAuthenticationChallenge:challenge];
             return;
-        }
+    }
         else if (challenge.previousFailureCount > self.authRetryCount) {
             [[challenge sender] cancelAuthenticationChallenge:challenge];
         }
@@ -552,7 +558,7 @@ static BOOL _disableNetworkActivityIndicator;
             if([[self delegate] respondsToSelector:@selector(request:onRequestForAuthenticationChallenge:)])
             {
                 [[self delegate] request:self onRequestForAuthenticationChallenge:challenge];
-            }
+    }
             else {
                 [[challenge sender] continueWithoutCredentialForAuthenticationChallenge:challenge];
             }
@@ -721,11 +727,11 @@ static BOOL _disableNetworkActivityIndicator;
     [self invokeCallbackWithState:APSHTTPCallbackStateReadyState];
 	if(_authenticationChallenge && [_authenticationChallenge.protectionSpace.protocol isEqualToString:response.URL.scheme] &&
        [_authenticationChallenge.protectionSpace.host isEqualToString:response.URL.host]){
-        
+
         if([self requestPassword] != nil && [self requestUsername] != nil) {
             if(_challengedCredential && _authenticationChallenge && [(NSHTTPURLResponse *)response statusCode] == 200){
                 [[NSURLCredentialStorage sharedCredentialStorage] setCredential:_challengedCredential forProtectionSpace:_authenticationChallenge.protectionSpace];
-            }
+}
         }
     }
 
@@ -811,14 +817,18 @@ static BOOL _disableNetworkActivityIndicator;
     self.response.readyState = APSHTTPResponseStateDone;
     self.response.connected = NO;
      
+    [self responseFinished];
+}
+
+-(void)responseFinished
+{
     [self invokeCallbackWithState:APSHTTPCallbackStateReadyState];
-
+    
     [self invokeCallbackWithState:APSHTTPCallbackStateSendStream];
-
+    
     [self invokeCallbackWithState:APSHTTPCallbackStateDataStream];
-
+    
     [self invokeCallbackWithState:APSHTTPCallbackStateLoad];
-
 }
 
 -(void)URLSession:(nonnull NSURLSession *)session task:(nonnull NSURLSessionTask *)task didCompleteWithError:(nullable NSError *)error
@@ -842,13 +852,7 @@ static BOOL _disableNetworkActivityIndicator;
     self.response.readyState = APSHTTPResponseStateDone;
     self.response.connected = NO;
     
-    [self invokeCallbackWithState:APSHTTPCallbackStateReadyState];
-    
-    [self invokeCallbackWithState:APSHTTPCallbackStateSendStream];
-    
-    [self invokeCallbackWithState:APSHTTPCallbackStateDataStream];
-    
-    [self invokeCallbackWithState:APSHTTPCallbackStateLoad];
+    [self responseFinished];
 }
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
