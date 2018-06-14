@@ -96,4 +96,6 @@ typedef NS_ENUM(NSInteger, APSRequestError) {
 
 + (void)setDisableNetworkActivityIndicator:(BOOL)value;
 + (BOOL)disableNetworkActivityIndicator;
++(void)startNetwork;
++(void)stopNetwork;
 @end
